@@ -12,7 +12,7 @@ Resources:
   PublicSubnet1:
     Type: 'AWS::EC2::Subnet'
     Properties:
-      AvailabilityZone: us-east-2a
+      AvailabilityZone: us-east-1a
       CidrBlock: 10.0.0.0/24
       VpcId: !Ref MyVPC
       MapPublicIpOnLaunch: true
@@ -20,7 +20,7 @@ Resources:
   PublicSubnet2:
     Type: 'AWS::EC2::Subnet'
     Properties:
-      AvailabilityZone: us-east-2b
+      AvailabilityZone: us-east-1b
       CidrBlock: 10.0.2.0/24
       VpcId: !Ref MyVPC
       MapPublicIpOnLaunch: true
@@ -28,14 +28,14 @@ Resources:
   PrivateSubnet1:
     Type: 'AWS::EC2::Subnet'
     Properties:
-      AvailabilityZone: us-east-2a
+      AvailabilityZone: us-east-1a
       CidrBlock: 10.0.1.0/24
       VpcId: !Ref MyVPC
 
   PrivateSubnet2:
     Type: 'AWS::EC2::Subnet'
     Properties:
-      AvailabilityZone: us-east-2b
+      AvailabilityZone: us-east-1b
       CidrBlock: 10.0.3.0/24
       VpcId: !Ref MyVPC
 
@@ -75,17 +75,11 @@ Resources:
     Type: "AWS::ElasticLoadBalancingV2::Listener"
     Properties:
       DefaultActions:
-        - Type: fixed-response
-          FixedResponseConfig:
-            StatusCode: 200
-            ContentType: text/plain
-            MessageBody: "OK"
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
       LoadBalancerArn: !Ref MyLoadBalancer
       Port: 80
       Protocol: HTTP
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref TargetGroup
 
   LoadBalancerSecurityGroup:
     Type: "AWS::EC2::SecurityGroup"
@@ -109,7 +103,7 @@ Resources:
   LaunchConfiguration:
     Type: "AWS::AutoScaling::LaunchConfiguration"
     Properties:
-      ImageId: ami-04376654933b081a7
+      ImageId: ami-0dbc3d7bc646e8516
       InstanceType: t2.micro
       AssociatePublicIpAddress: false  # Instances are in a private network
       SecurityGroups:
@@ -167,7 +161,15 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          SourceSecurityGroupName: !Ref InstanceSecurityGroup
+          SourceSecurityGroupId: !GetAtt InstanceSecurityGroup.GroupId
+
+  DBSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for MyDB"
+      SubnetIds:
+        - Ref: PrivateSubnet1
+        - Ref: PrivateSubnet2
 
   MyDB:
     Type: "AWS::RDS::DBInstance"
@@ -182,6 +184,9 @@ Resources:
       AllocatedStorage: "20" 
       BackupRetentionPeriod: 7  
       MultiAZ: false 
+      VPCSecurityGroups:
+        - Ref: DBSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
       VPCSecurityGroups:
         - Ref: DBSecurityGroup
 
